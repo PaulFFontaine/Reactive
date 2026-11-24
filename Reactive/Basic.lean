@@ -20,7 +20,7 @@ structure SigFun.reactive {α β} (sf : SigFun α β) where
   val : Reactive α β
   property : ∀s n, n > 0 -> sf s n = val (s.history n)
 
-def SigFun.reactive_comp {sf1 : SigFun β γ} {sf2 : SigFun α β} (h1 : reactive sf1) (h2 : reactive sf2) : reactive (sf1 ∘ sf2)
+/-def SigFun.reactive_comp {sf1 : SigFun β γ} {sf2 : SigFun α β} (h1 : reactive sf1) (h2 : reactive sf2) : reactive (sf1 ∘ sf2)
 := {val := fun input => h1.val (h2.val.history input),
     property := by
       have p1 := h1.property
@@ -29,7 +29,7 @@ def SigFun.reactive_comp {sf1 : SigFun β γ} {sf2 : SigFun α β} (h1 : reactiv
       intro s n h
       induction n
       contradiction
-      rw[p1]
+      rw[p1]-/
 
 
 
