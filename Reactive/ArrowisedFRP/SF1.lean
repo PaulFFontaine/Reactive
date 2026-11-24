@@ -28,23 +28,14 @@ inductive SF1 : Ty -> Ty -> Type where
   |KI : SF1 i (Ty.arrow o o)
   |IU : o.toType -> SF1 i (Ty.arrow o o) -> SF1 i o
   |App : SF1 i (Ty.arrow o1 o2) -> SF1 i o1 -> SF1 i o2
-/-- `SF1.run input sf` runs the given `sf`as a state machine. Similar to `State.run`
-`SF1.run`defines an operationnal semantics of `SF1`values -/
-def SF1.run : i.toType -> SF1 i o  -> o.toType × SF1 i o
-  |input,I => (input,I)
-  |_,KI=> (id,KI)
-  |input,IU init update => let (result,state) := update.run input
-                     let x := result init
-                     (x, IU x state)
-  |input,App f x=> let (resultF,stateF) := f.run input
-              let (resultX,stateX) := x.run input
-              (resultF resultX, stateF.App stateX)
+
 abbrev SF1.identity {i} : SF1 i i := I
 abbrev SF1.constId {i o} : SF1 i (Ty.arrow o o) := KI
 abbrev SF1.const {i o} (x : o.toType) : SF1 i o := IU x KI
 
 abbrev SF1.map (f : o1.toType -> o2.toType) : SF1 i o1 -> SF1 i o2 := App (const f)
 
+/-- `SF1.liftA2` is behaves like a map with a function of arity 2 instead of 1 -/
 abbrev SF1.liftA2 (f : o1.toType -> o2.toType -> o3.toType) (sf : SF1 i o1) : SF1 i o2 -> SF1 i o3
  := App (sf.map f)
 
@@ -52,6 +43,7 @@ abbrev SF1.delay (x : o.toType) (sf : SF1 i o) : SF1 i o :=
   IU x (map (@Function.const o.toType o.toType) sf)
 
 def SF1.arr (f : i.toType -> o.toType) : SF1 i o := App (const f) I
+/-- `SF1.compo` is the analogous of function composition for Stream Functions -/
 @[simp]
 def SF1.compo : SF1 o1 o2 -> SF1 i o1 -> SF1 i o2
   |I, sf => sf
@@ -66,8 +58,30 @@ theorem SF1.compo_I_right (sf : SF1 i o) : sf.compo I = sf := by induction sf wi
   | IU init update ih => simp[ih]
   | App f x ih1 ih2 => simp[ih1,ih2]
 
+@[simp]
+theorem SF1.compo_I_left {i o} (sf : SF1 i o) : I.compo sf = sf := by induction sf with
+  | I => simp
+  | KI => simp
+  | IU init update ih => simp
+  | App f x ih1 ih2 => simp
 
+
+/-- `SF1.run input sf` runs the given `sf` as a state machine. Similar to `State.run`
+`SF1.run`defines an operationnal semantics of `SF1`values -/
+def SF1.run : i.toType -> SF1 i o  -> o.toType × SF1 i o
+  |input,I => (input,I)
+  |_,KI=> (id,KI)
+  |input,IU init update => let (result,state) := update.run input
+                     let x := result init
+                     (x, IU x state)
+  |input,App f x=> let (resultF,stateF) := f.run input
+              let (resultX,stateX) := x.run input
+              (resultF resultX, stateF.App stateX)
+/-- `SF1.eval input sf` runs the given `sf` and returns the resulting output
+discarding the resulting state -/
 def SF1.eval input (sf : SF1 i o) := (sf.run input).fst
+/-- `SF1.exec input sf` runs the given `sf` and returns the resulting state
+discarding the resulting output -/
 def SF1.exec input (sf : SF1 i o) := (sf.run input).snd
 
 
@@ -107,7 +121,8 @@ theorem SF1.exec_compo input (sf1 : SF1 o1 o2) (sf2 : SF1 i o1) : (sf1.compo sf2
    | App sf1 sf2 ih1 ih2 => simp[ih1,ih2,compo]
 
 
-
+/-- `SF1.stateS` computes the resulting state after processing a sequence of input.
+The input sequence must be given as a stack, i.e with inputs from the latest to the earliest -/
 def SF1.stateS (inputStack : List i.toType) (sf : SF1 i o) := List.foldr exec sf inputStack
 
 @[simp]
@@ -150,6 +165,10 @@ theorem SF1.stateS_IU_not_nil inputStack {h : inputStack ≠ []} init update :
 @[simp]
 theorem SF1.stateS_nil (sf : SF1 i o) : sf.stateS [] = sf := by simp[stateS]
 
+/-- `SF1.denotationSAux` computes the resulting output after processing
+a non-empty sequence of inputs.
+The input sequence must be given as a queue, i.e with inputs from the earliest to the latest.
+The `last` argument is the latest piece of input. -/
 @[simp]
 def SF1.denotationSAux (last : i.toType) (previous : List (i.toType)) : SF1 i o -> o.toType
   |I => last
@@ -158,7 +177,8 @@ def SF1.denotationSAux (last : i.toType) (previous : List (i.toType)) : SF1 i o 
   |IU init update => update.denotationSAux last previous (match previous with
     |[] => init
     |(x::xs) => (IU init update).denotationSAux x xs)
-
+/-- `SF1.denotationS` computes the resulting output after processing a non-empty sequence of inputs.
+The input sequence must be given as a stack, i.e with inputs from the latest to the earliest -/
 def SF1.denotationS (inputStack : List i.toType) (h : inputStack ≠ []) : SF1 i o -> (o.toType)
     := denotationSAux (inputStack.head h) (inputStack.tail)
 
@@ -181,6 +201,8 @@ theorem SF1.denotationS_IU inputStack {h} init update : denotationS inputStack h
           | nil => simp
           | cons x xs => cases xs <;> simp
 
+/-- `SF1.stateQ` computes the resulting state after processing a non-empty sequence of inputs.
+The input sequence must be given as a queue, i.e with inputs from the earliest to the latest -/
 def SF1.stateQ inputQueue (sf : SF1 i o) := List.foldl (fun sf => sf.exec) sf inputQueue
 
 theorem SF1.stateQ_eq_stateS inputQueue (sf : SF1 i o) : sf.stateQ inputQueue = sf.stateS inputQueue.reverse := by simp[stateQ,stateS]
@@ -242,6 +264,7 @@ theorem SF1.denotationSAux_eq_eval_stateS last previous (sf : SF1 i o) :
         |nil => simp[ih]
         |cons x xs ih1 =>
           simp[ih,ih1]
+
 theorem SF1.stateS_eq_foldr (sf : SF1 i o) (xs : List i.toType) :
   sf.stateS xs = List.foldr exec sf xs := match xs with
     |[] => by simp
@@ -288,7 +311,10 @@ theorem SF1.denotationSAux_concat x xs y (sf : SF1 i o) : sf.denotationSAux x (x
 
 
 
-
+/-- `SF1.denotationQAux` computes the resulting output after processing
+a non-empty sequence of input.
+The input sequence must be given as a queue, i.e with inputs from the earliest to the latest.
+The `first` argument is the earliest piece of input. -/
 def SF1.denotationQAux (first : i.toType) (next : List (i.toType)) : SF1 i o -> o.toType
   |I => (first::next).getLast (by simp)
   |KI => id
@@ -297,6 +323,7 @@ def SF1.denotationQAux (first : i.toType) (next : List (i.toType)) : SF1 i o -> 
     |[] => update.eval first init
     |(x::xs) => ((IU init update).exec first).denotationQAux x xs
 
-
+/-- `SF1.denotationQ` computes the resulting output after processing a non-empty sequence of inputs.
+The input sequence must be given as a queue, i.e with inputs from the earliest to the latest -/
 def SF1.denotationQ (inputQueue : List i.toType) (h : inputQueue ≠ []) : SF1 i o -> (o.toType)
   := denotationQAux (inputQueue.head h) (inputQueue.tail)
