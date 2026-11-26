@@ -121,125 +121,129 @@ theorem SF1.exec_compo input (sf1 : SF1 o1 o2) (sf2 : SF1 i o1) : (sf1.compo sf2
    | App sf1 sf2 ih1 ih2 => simp[ih1,ih2,compo]
 
 
-/-- `SF1.stateS` computes the resulting state after processing a sequence of input.
+/-- `SF1.stateRtoL` computes the resulting state after processing a sequence of input.
 The input sequence must be given as a stack, i.e with inputs from the latest to the earliest -/
-def SF1.stateS (inputStack : List i.toType) (sf : SF1 i o) := List.foldr exec sf inputStack
+def SF1.stateRtoL (inputStack : List i.toType) (sf : SF1 i o) := List.foldr exec sf inputStack
 
 @[simp]
-theorem SF1.stateS_concat input inputStack (sf : SF1 i o) : sf.stateS (inputStack ++ [input]) =
- (sf.exec input).stateS inputStack := by simp[stateS]
+theorem SF1.stateRtoL_concat input inputStack (sf : SF1 i o) : sf.stateRtoL (inputStack ++ [input])
+ = (sf.exec input).stateRtoL inputStack := by simp[stateRtoL]
 @[simp]
-theorem SF1.stateS_cons input inputStack (sf : SF1 i o) : sf.stateS (input :: inputStack) =
- (sf.stateS inputStack).exec input := by simp[stateS]
+theorem SF1.stateRtoL_cons input inputStack (sf : SF1 i o) : sf.stateRtoL (input :: inputStack) =
+ (sf.stateRtoL inputStack).exec input := by simp[stateRtoL]
 
 @[simp]
-theorem SF1.stateS_I inputStack : (@I i).stateS inputStack = I :=
-by simp only[stateS]; induction inputStack with
+theorem SF1.stateRtoL_I inputStack : (@I i).stateRtoL inputStack = I :=
+by simp only[stateRtoL]; induction inputStack with
   | nil => eq_refl
   | cons x xs ih => simp[List.foldr, ih]
 
 @[simp]
-theorem SF1.stateS_KI inputStack : (@KI i o).stateS inputStack = KI :=
-by simp only[stateS]; induction inputStack with
+theorem SF1.stateRtoL_KI inputStack : (@KI i o).stateRtoL inputStack = KI :=
+by simp only[stateRtoL]; induction inputStack with
   | nil => eq_refl
   | cons x xs ih => simp[List.foldr, ih]
 
 @[simp]
-theorem SF1.stateS_App inputStack f x : (@App i o1 o2 f x).stateS inputStack =
- App (f.stateS inputStack) (x.stateS inputStack) :=
-by simp only[stateS]; induction inputStack with
+theorem SF1.stateRtoL_App inputStack f x : (@App i o1 o2 f x).stateRtoL inputStack =
+ App (f.stateRtoL inputStack) (x.stateRtoL inputStack) :=
+by simp only[stateRtoL]; induction inputStack with
   | nil => eq_refl
   | cons x xs ih => simp[List.foldr, ih]
 
 @[simp]
-theorem SF1.stateS_IU_not_nil inputStack {h : inputStack ≠ []} init update :
-  (@IU i o init update).stateS inputStack =
-  IU (((IU init update).stateS inputStack.tail).eval (inputStack.head h)) (update.stateS inputStack)
+theorem SF1.stateRtoL_IU_not_nil inputStack {h : inputStack ≠ []} init update :
+  (@IU i o init update).stateRtoL inputStack =
+  IU (((IU init update).stateRtoL inputStack.tail).eval (inputStack.head h))
+     (update.stateRtoL inputStack)
   := by induction inputStack with
     | nil => contradiction
     | cons head tail ih =>  cases tail
                             · eq_refl
-                            simp[stateS] at ih
-                            simp[stateS,ih]
+                            simp[stateRtoL] at ih
+                            simp[stateRtoL,ih]
 
 @[simp]
-theorem SF1.stateS_nil (sf : SF1 i o) : sf.stateS [] = sf := by simp[stateS]
+theorem SF1.stateRtoL_nil (sf : SF1 i o) : sf.stateRtoL [] = sf := by simp[stateRtoL]
 
-/-- `SF1.denotationSAux` computes the resulting output after processing
+/-- `SF1.denotationRtoLAux` computes the resulting output after processing
 a non-empty sequence of inputs.
 The input sequence must be given as a queue, i.e with inputs from the earliest to the latest.
 The `last` argument is the latest piece of input. -/
 @[simp]
-def SF1.denotationSAux (last : i.toType) (previous : List (i.toType)) : SF1 i o -> o.toType
+def SF1.denotationRtoLAux (last : i.toType) (previous : List (i.toType)) : SF1 i o -> o.toType
   |I => last
   |KI => id
-  |App f x => (f.denotationSAux last previous) (x.denotationSAux last previous)
-  |IU init update => update.denotationSAux last previous (match previous with
+  |App f x => (f.denotationRtoLAux last previous) (x.denotationRtoLAux last previous)
+  |IU init update => update.denotationRtoLAux last previous (match previous with
     |[] => init
-    |(x::xs) => (IU init update).denotationSAux x xs)
-/-- `SF1.denotationS` computes the resulting output after processing a non-empty sequence of inputs.
+    |(x::xs) => (IU init update).denotationRtoLAux x xs)
+/-- `SF1.denotationRtoL` computes the resulting output after processing
+a non-empty sequence of inputs.
 The input sequence must be given as a stack, i.e with inputs from the latest to the earliest -/
-def SF1.denotationS (inputStack : List i.toType) (h : inputStack ≠ []) : SF1 i o -> (o.toType)
-    := denotationSAux (inputStack.head h) (inputStack.tail)
+def SF1.denotationRtoL {i o} (inputStack : List i.toType) (h : inputStack ≠ []) :
+ SF1 i o -> (o.toType) := denotationRtoLAux (inputStack.head h) (inputStack.tail)
 
-theorem SF1.denotationS_I inputStack {h} : denotationS inputStack h (@I i) = inputStack.head h :=
- by simp[denotationS]
+theorem SF1.denotationRtoL_I {i} inputStack {h} : denotationRtoL inputStack h (@I i) =
+ inputStack.head h := by simp[denotationRtoL]
 @[simp]
-theorem SF1.denotationS_KI inputStack {h} : denotationS inputStack h (@KI i o) = id :=
-by simp only [denotationS,denotationSAux]; eq_refl
+theorem SF1.denotationRtoL_KI {i o} inputStack {h} : denotationRtoL inputStack h (@KI i o) = id :=
+by simp only [denotationRtoL,denotationRtoLAux]; eq_refl
 @[simp]
-theorem SF1.denotationS_App  inputStack {h} f x : denotationS inputStack h (@App i o1 o2 f x) =
-  (f.denotationS inputStack h) (x.denotationS inputStack h) := by simp[denotationS]
+theorem SF1.denotationRtoL_App {i o1 o2} inputStack {h} f x : denotationRtoL inputStack h (@App i o1 o2 f x) =
+  (f.denotationRtoL inputStack h) (x.denotationRtoL inputStack h) := by simp[denotationRtoL]
 
 @[simp]
-theorem SF1.denotationS_IU inputStack {h} init update : denotationS inputStack h (@IU i o init update) =
-  update.denotationS inputStack h (if h1 : inputStack.tail.isEmpty then init
-    else (IU init update).denotationS inputStack.tail (by simp at h1; simp[h1])):=
+theorem SF1.denotationRtoL_IU inputStack {h} init update :
+ denotationRtoL inputStack h (@IU i o init update) =
+  update.denotationRtoL inputStack h (if h1 : inputStack.tail.isEmpty then init
+    else (IU init update).denotationRtoL inputStack.tail (by simp at h1; simp[h1])):=
       by induction inputStack with
         |nil => contradiction
-        |cons head tail ih =>  simp[denotationS] at ih; simp[denotationS,ih]; cases tail with
+        |cons head tail ih =>  simp[denotationRtoL] at ih; simp[denotationRtoL,ih]; cases tail with
           | nil => simp
           | cons x xs => cases xs <;> simp
 
-/-- `SF1.stateQ` computes the resulting state after processing a non-empty sequence of inputs.
+/-- `SF1.stateLToR` computes the resulting state after processing a non-empty sequence of inputs.
 The input sequence must be given as a queue, i.e with inputs from the earliest to the latest -/
-def SF1.stateQ inputQueue (sf : SF1 i o) := List.foldl (fun sf => sf.exec) sf inputQueue
+def SF1.stateLToR inputQueue (sf : SF1 i o) := List.foldl (fun sf => sf.exec) sf inputQueue
 
-theorem SF1.stateQ_eq_stateS inputQueue (sf : SF1 i o) : sf.stateQ inputQueue = sf.stateS inputQueue.reverse := by simp[stateQ,stateS]
-
-@[simp]
-theorem SF1.stateQ_concat input inputQueue (sf : SF1 i o) : sf.stateQ (inputQueue ++ [input]) =
-(sf.stateQ inputQueue).exec input := by simp[stateQ]
-@[simp]
-theorem SF1.stateQ_cons input inputQueue (sf : SF1 i o) : sf.stateQ (input :: inputQueue) =
- (sf.exec input).stateQ inputQueue := by simp[stateQ]
+theorem SF1.stateLToR_eq_stateRtoL inputQueue (sf : SF1 i o) : sf.stateLToR inputQueue =
+ sf.stateRtoL inputQueue.reverse := by simp[stateLToR,stateRtoL]
 
 @[simp]
-theorem SF1.stateQ_I inputQueue : (@I i).stateQ inputQueue = I :=
-by simp only[stateQ]; induction inputQueue with
+theorem SF1.stateLToR_concat input inputQueue (sf : SF1 i o) :
+sf.stateLToR (inputQueue ++ [input]) = (sf.stateLToR inputQueue).exec input := by simp[stateLToR]
+@[simp]
+theorem SF1.stateLToR_cons input inputQueue (sf : SF1 i o) : sf.stateLToR (input :: inputQueue) =
+ (sf.exec input).stateLToR inputQueue := by simp[stateLToR]
+
+@[simp]
+theorem SF1.stateLToR_I inputQueue : (@I i).stateLToR inputQueue = I :=
+by simp only[stateLToR]; induction inputQueue with
   | nil => eq_refl
   | cons x xs ih => simp[List.foldl, ih]
 
 @[simp]
-theorem SF1.stateQ_KI inputQueue : (@KI i o).stateQ inputQueue = KI :=
-by simp only[stateQ]; induction inputQueue with
+theorem SF1.stateLToR_KI inputQueue : (@KI i o).stateLToR inputQueue = KI :=
+by simp only[stateLToR]; induction inputQueue with
   | nil => eq_refl
   | cons x xs ih => simp[List.foldl, ih]
 
 @[simp]
-theorem SF1.stateQ_App inputQueue f x : (@App i o1 o2 f x).stateQ inputQueue = App (f.stateQ inputQueue) (x.stateQ inputQueue) :=
-  by simp[stateQ_eq_stateS]
+theorem SF1.stateLToR_App inputQueue f x : (@App i o1 o2 f x).stateLToR inputQueue =
+ App (f.stateLToR inputQueue) (x.stateLToR inputQueue) := by simp[stateLToR_eq_stateRtoL]
 
 @[simp]
-theorem SF1.stateQ_IU_not_nil inputQueue {h : inputQueue ≠ []} init update :
-  (@IU i o init update).stateQ inputQueue =
-  (IU (update.eval (inputQueue.head h) init) (update.exec (inputQueue.head h))).stateQ
+theorem SF1.stateLToR_IU_not_nil inputQueue {h : inputQueue ≠ []} init update :
+  (@IU i o init update).stateLToR inputQueue =
+  (IU (update.eval (inputQueue.head h) init) (update.exec (inputQueue.head h))).stateLToR
    (inputQueue.tail)
-    := by simp only [stateQ]; induction inputQueue with
+    := by simp only [stateLToR]; induction inputQueue with
      | nil => contradiction
      | cons  => simp
 @[simp]
-theorem SF1.stateQ_nil (sf : SF1 i o) : sf.stateQ [] = sf := by simp[stateQ]
+theorem SF1.stateLToR_nil (sf : SF1 i o) : sf.stateLToR [] = sf := by simp[stateLToR]
 
 theorem SF1.run_eq_eval_exec (sf : SF1 i o) x : sf.run x = (sf.eval x, sf.exec x) := by
   induction sf <;> simp!
@@ -249,8 +253,8 @@ theorem SF1.run_eq_eval_exec (sf : SF1 i o) x : sf.run x = (sf.eval x, sf.exec x
   simp[ih1,ih2]
 
 
-theorem SF1.denotationSAux_eq_eval_stateS last previous (sf : SF1 i o) :
-  sf.denotationSAux last previous = (sf.stateS previous).eval last := by
+theorem SF1.denotationRtoLAux_eq_eval_stateRtoL last previous (sf : SF1 i o) :
+  sf.denotationRtoLAux last previous = (sf.stateRtoL previous).eval last := by
     revert previous last
     induction sf with
       |I => simp
@@ -265,30 +269,30 @@ theorem SF1.denotationSAux_eq_eval_stateS last previous (sf : SF1 i o) :
         |cons x xs ih1 =>
           simp[ih,ih1]
 
-theorem SF1.stateS_eq_foldr (sf : SF1 i o) (xs : List i.toType) :
-  sf.stateS xs = List.foldr exec sf xs := match xs with
+theorem SF1.stateRtoL_eq_foldr (sf : SF1 i o) (xs : List i.toType) :
+  sf.stateRtoL xs = List.foldr exec sf xs := match xs with
     |[] => by simp
-    |(y::ys) => have ih := stateS_eq_foldr sf ys
+    |(y::ys) => have ih := stateRtoL_eq_foldr sf ys
                 match sf with
                   |I => by simp[<-ih]
                   |KI => by simp[<-ih]
                   |App f x => by simp[<-ih]
-                  |IU init update => by have ih1 := stateS_eq_foldr update (y::ys)
+                  |IU init update => by have ih1 := stateRtoL_eq_foldr update (y::ys)
                                         simp only [ne_eq, reduceCtorEq, not_false_eq_true,
-                                          stateS_IU_not_nil, List.head_cons, List.tail_cons, ih1,
+                                          stateRtoL_IU_not_nil, List.head_cons, List.tail_cons, ih1,
                                           List.foldr_cons, ← ih]
                                         cases ys
                                         · rfl
                                         rename_i head tail
-                                        have ih2 := stateS_eq_foldr update tail
-                                        have ih3 := stateS_eq_foldr update (head::tail)
+                                        have ih2 := stateRtoL_eq_foldr update tail
+                                        have ih3 := stateRtoL_eq_foldr update (head::tail)
                                         simp![ih2,ih3]
-theorem SF1.denotationSAux_concat x xs y (sf : SF1 i o) : sf.denotationSAux x (xs++[y])=
- (sf.exec y).denotationSAux x xs:= by
+theorem SF1.denotationRtoLAux_concat x xs y (sf : SF1 i o) : sf.denotationRtoLAux x (xs++[y])=
+ (sf.exec y).denotationRtoLAux x xs:= by
  revert x xs
  induction sf with
   |I => simp
-  |KI =>  simp only [denotationSAux, exec_KI, forall_const]; grind only
+  |KI =>  simp only [denotationRtoLAux, exec_KI, forall_const]; grind only
   |App f x1 ihf ihx1 =>
     simp[ihf,ihx1]
   |IU init update ih =>
@@ -296,9 +300,9 @@ theorem SF1.denotationSAux_concat x xs y (sf : SF1 i o) : sf.denotationSAux x (x
     revert x
     induction xs with
      |nil =>
-      simp[denotationSAux_eq_eval_stateS]
+      simp[denotationRtoLAux_eq_eval_stateRtoL]
      |cons head tail tail_ih =>
-      unfold denotationSAux
+      unfold denotationRtoLAux
       simp only [List.cons_append, exec_IU]
       intro x
       rw[tail_ih,<-List.cons_append,ih]
@@ -311,19 +315,20 @@ theorem SF1.denotationSAux_concat x xs y (sf : SF1 i o) : sf.denotationSAux x (x
 
 
 
-/-- `SF1.denotationQAux` computes the resulting output after processing
+/-- `SF1.denotationLToRAux` computes the resulting output after processing
 a non-empty sequence of input.
 The input sequence must be given as a queue, i.e with inputs from the earliest to the latest.
 The `first` argument is the earliest piece of input. -/
-def SF1.denotationQAux (first : i.toType) (next : List (i.toType)) : SF1 i o -> o.toType
+def SF1.denotationLToRAux (first : i.toType) (next : List (i.toType)) : SF1 i o -> o.toType
   |I => (first::next).getLast (by simp)
   |KI => id
-  |App f x => (f.denotationQAux first next) (x.denotationQAux first next)
+  |App f x => (f.denotationLToRAux first next) (x.denotationLToRAux first next)
   |IU init update => match next with
     |[] => update.eval first init
-    |(x::xs) => ((IU init update).exec first).denotationQAux x xs
+    |(x::xs) => ((IU init update).exec first).denotationLToRAux x xs
 
-/-- `SF1.denotationQ` computes the resulting output after processing a non-empty sequence of inputs.
+/-- `SF1.denotationLToR` computes the resulting output after processing
+a non-empty sequence of inputs.
 The input sequence must be given as a queue, i.e with inputs from the earliest to the latest -/
-def SF1.denotationQ (inputQueue : List i.toType) (h : inputQueue ≠ []) : SF1 i o -> (o.toType)
-  := denotationQAux (inputQueue.head h) (inputQueue.tail)
+def SF1.denotationLToR (inputQueue : List i.toType) (h : inputQueue ≠ []) : SF1 i o -> (o.toType)
+  := denotationLToRAux (inputQueue.head h) (inputQueue.tail)
