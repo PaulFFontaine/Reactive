@@ -1,13 +1,13 @@
 import Mathlib.Data.List.Induction
-/-! The aim of this (experimental) module is to provide an arrowized
-Functionnal Reactive Programming library like Yampa in Haskell.
+/-! The aim of this (experimental) module is to study Arrowized
+Functionnal Reactive Programming library.
 Discrete time representation is used.
 Conceptually, an `SF` (Stream Function) with input type i and output type `o`
  maps a function of type `Nat -> i`
 to a function of type (`Nat -> o`) such that output at time `n`
 depends only of inputs at time smaller than `n`.
  You can also see it as a state machine that reads input of type `i` and write outputs of type `o`
- This module is intended to be a backend module, so the name `SF1`is used instead of `SF`
+ I use the name `SF1`instead of `SF` for historical reasons.
 -/
 /-- A value of type `Ty` represents a type that can be used as input or output of an `SF1` -/
 inductive Ty : Type where
